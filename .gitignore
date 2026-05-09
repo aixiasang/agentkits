@@ -1,0 +1,63 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+wheelhouse/
+
+# ---------- Virtual envs ----------
+.venv/
+venv/
+env/
+.conda/
+
+# ---------- Tooling caches ----------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+
+# ---------- Editor / IDE ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---------- Secrets ----------
+.env
+.env.*
+!.env.example
+
+# ---------- Logs ----------
+*.log
+logs/
+
+# ---------- Reference projects (study material, not ours) ----------
+refs/
+
+# ---------- Not shipped on GitHub: internal test suite and ccode app ----------
+tests/
+ccode/
+
+# ---------- Runtime artefacts ----------
+.ccode/
+.claude/
+*.sqlite
+*.db
+*.db-journal
+
+# ---------- Jupyter ----------
+.ipynb_checkpoints/
+
+# ---------- OS ----------
+ehthumbs.db
+Icon?
