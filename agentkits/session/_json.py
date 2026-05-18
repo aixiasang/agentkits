@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 from typing import AsyncIterator
@@ -8,8 +7,6 @@ from ._base import SessionBase
 
 
 class JSONSession(SessionBase):
-    """One file per session id under ``root``."""
-
     def __init__(self, root: str) -> None:
         self.root = os.path.abspath(root)
         os.makedirs(self.root, exist_ok=True)

@@ -1,19 +1,7 @@
-# -*- coding: utf-8 -*-
-"""Self-Refine agent.
-
-Madaan et al., "Self-Refine: Iterative Refinement with Self-Feedback"
-(NeurIPS 2023).
-
-Produce an initial answer, then alternate ``feedback`` and ``refine``
-turns on the same model. Stops when the feedback contains a stop
-marker (default: case-insensitive substring ``"no further"``) or after
-``max_rounds``.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, List
 
 from ..message import ChatMessageBase
 from ..model import ChatModelBase
@@ -57,8 +45,6 @@ class SelfRefineResult(AgentResult):
 
 
 class SelfRefineAgent(AgentBase):
-    """Iterative self-feedback-and-refine loop."""
-
     def __init__(
         self,
         *,
@@ -86,6 +72,7 @@ class SelfRefineAgent(AgentBase):
         *,
         max_rounds: int | None = None,
         output_type: type | None = None,
+        **_: Any,
     ) -> SelfRefineResult:
         task = _extract_user_text(user_input)
         rounds_limit = max_rounds or self.max_rounds
@@ -117,7 +104,7 @@ class SelfRefineAgent(AgentBase):
             if extra is not None:
                 total_usage = extra if total_usage is None else total_usage + extra
 
-        return SelfRefineResult(
+        result = SelfRefineResult(
             messages=last_result.messages,
             final_message=last_result.final_message,
             iterations=last_result.iterations,
@@ -128,6 +115,7 @@ class SelfRefineAgent(AgentBase):
             feedbacks=feedbacks,
             rounds=len(drafts) - 1,
         )
+        return result
 
     async def _produce(self, task: str) -> ReActResult:
         actor = ReActAgent(
@@ -139,7 +127,12 @@ class SelfRefineAgent(AgentBase):
         )
         return await actor.run(task)
 
-    async def _refine(self, task: str, answer: str, feedback: str) -> ReActResult:
+    async def _refine(
+        self,
+        task: str,
+        answer: str,
+        feedback: str,
+    ) -> ReActResult:
         actor = ReActAgent(
             name=f"{self.name}.refiner",
             model=self.model,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._function import parse_tool_function
 from ._response import ToolResponse
 from ._toolkit import Toolkit

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from datetime import timedelta
@@ -8,8 +7,6 @@ from ._base import MCPClientBase, MCPToolFunction
 
 
 class StdIOStatefulClient(MCPClientBase):
-    """Stateful MCP client over stdio. Use as an async context manager."""
-
     def __init__(
         self,
         name: str,

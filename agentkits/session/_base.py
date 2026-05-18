@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from abc import ABC, abstractmethod
 from typing import AsyncIterator
 
@@ -6,8 +5,6 @@ from ..message import ChatMessageBase
 
 
 class SessionBase(ABC):
-    """Abstract conversation store keyed by session id."""
-
     @abstractmethod
     async def load(self, session_id: str) -> list[ChatMessageBase]: ...
 

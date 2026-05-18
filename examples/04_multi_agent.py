@@ -1,29 +1,13 @@
-# -*- coding: utf-8 -*-
-"""Compare every built-in reasoning agent on the same task.
-
-Covers:
-
-* ReActAgent           - modern tool-calling loop.
-* ClassicReActAgent    - paper-faithful Thought/Action/Observation.
-* PlanAgent            - planner -> ReAct executor.
-* ReWOOAgent           - plan-then-execute-then-solve (fewer round trips).
-* ReflexionAgent       - retry with verbal self-reflection.
-* SelfRefineAgent      - draft -> critique -> revise.
-
-Run::
-
-    export DS_API_KEY=sk-...
-    python examples/04_multi_agent.py
-"""
-
 from __future__ import annotations
 
 import asyncio
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentkits import (
     ClassicReActAgent,
-    OpenAIChatModel,
     PlanAgent,
     ReActAgent,
     ReflexionAgent,
@@ -32,6 +16,7 @@ from agentkits import (
     Toolkit,
     ToolResponse,
 )
+from _shared import ali_model
 
 
 def build_toolkit() -> Toolkit:
@@ -61,24 +46,9 @@ def build_toolkit() -> Toolkit:
 
 
 async def main() -> None:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv()
-    except ImportError:
-        pass
-
-    api_key = os.environ.get("DS_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        raise SystemExit("Set DS_API_KEY first.")
-
     task = "Use the tools to compute (12 + 30) * 2. Reply only with the number."
 
-    async with OpenAIChatModel(
-        model_name="deepseek-v4-pro",
-        api_key=api_key,
-        base_url="https://api.deepseek.com",
-    ) as model:
+    async with ali_model() as model:
         tk = build_toolkit()
 
         agents = [
@@ -114,6 +84,8 @@ async def main() -> None:
             answer = res.text()
             if name == "classic":
                 answer = getattr(res, "final_answer", answer)
+            if name in {"plan", "rewoo"} and getattr(res, "plan", None):
+                print(f"[{name:>11}] plan={getattr(res, 'plan')}")
             print(
                 f"[{name:>11}] answer={answer!r:<14}  "
                 f"iterations={res.iterations}  tool_calls={res.tool_calls}  "

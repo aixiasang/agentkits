@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._base import SessionBase
 from ._json import JSONSession
 from ._memory import MemorySession

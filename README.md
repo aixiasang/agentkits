@@ -1,127 +1,64 @@
 # agentkits
 
-A minimal agent kit over OpenAI Chat Completions, OpenAI Responses, and
-Anthropic. References
-[openai-agents-python](https://github.com/openai/openai-agents-python)
-and [agentscope](https://github.com/modelscope/agentscope) for API
-shape; the rest is compressed to four orthogonal layers (message /
-model / tool / agent).
+`agentkits` is a lightweight async agent SDK for building tool-using agents on top of OpenAI-compatible Chat Completions, OpenAI Responses, and Claude.
 
-## Quick start
+The package keeps the runtime small and explicit: messages, models, tools, and agents are separate layers.
+
+## Core Ideas
+
+| Layer | Responsibility |
+|---|---|
+| `message` | Normalizes system, user, assistant, and tool messages across providers. |
+| `model` | Wraps OpenAI-compatible Chat Completions, OpenAI Responses, and Claude behind one async interface. |
+| `tool` | Registers Python functions as JSON-schema tools and dispatches tool calls. |
+| `agent` | Provides ReAct, planning, handoff, agent-as-tool, and reflection-style runtimes. |
+
+`ReActAgent` is the core execution loop. `PlanAgent` plans first, then runs an internal ReAct executor. `handoff(...)` lets a router agent transfer a conversation to another agent through a tool marker.
+
+## Quick Start
 
 ```python
 import asyncio
+
 from agentkits import OpenAIChatModel, ReActAgent, Toolkit, ToolResponse
 
-tk = Toolkit()
+toolkit = Toolkit()
 
-@tk.tool()
+
+@toolkit.tool()
 def add(a: int, b: int) -> ToolResponse:
     """Add two integers.
 
     Args:
-        a: first.
-        b: second.
+        a: First integer.
+        b: Second integer.
     """
     return ToolResponse.from_value(str(a + b))
 
-async def main():
-    async with OpenAIChatModel(
-        model_name="deepseek-v4-pro",
-        api_key="sk-...",
-        base_url="https://api.deepseek.com",
-    ) as model:
-        res = await ReActAgent(model=model, toolkit=tk).run("21 + 21?")
-        print(res.text())  # "42"
+
+async def main() -> None:
+    async with OpenAIChatModel.from_ali_env() as model:
+        agent = ReActAgent(model=model, toolkit=toolkit)
+        result = await agent.run("Use the tool to calculate 21 + 21.")
+        print(result.text())
+
 
 asyncio.run(main())
 ```
 
+The larger demo in `examples/08_reproducible_demo.py` shows a full order-recovery workflow with a router agent, handoff, plan generation, tool calls, and final output.
+
 ## Agents
 
-All live under `agentkits.agent`, share one `AgentBase.run()` contract,
-and return an `AgentResult` with aggregated `usage`.
-
-| Agent | Pattern / paper |
+| Agent | Purpose |
 |---|---|
-| `ReActAgent` | Modern tool-calling ReAct loop with streaming. |
-| `ClassicReActAgent` | Yao et al. 2023 — plain-text `Thought / Action / Observation`, ends on `finish[...]`. |
-| `PlanAgent` | Plan-and-execute: planner outputs steps, a child ReAct executes them. |
-| `ReflexionAgent` | Shinn et al. 2023 — Actor → Evaluator → verbal Reflector, retry with reflection. |
-| `SelfRefineAgent` | Madaan et al. 2023 — draft → feedback → revise. |
-| `ReWOOAgent` | Xu et al. 2023 — planner emits the full tool DAG up front; worker executes; solver composes. |
-
-`agent_as_tool(child)` exposes any agent as a regular tool callable.
-`handoff(target)` transfers the run (optionally with a history filter)
-to another agent mid-conversation.
-
-## Structured output
-
-Pass `structured_model=MyPydanticModel` to any `chat()` / `chat_cb()`;
-the response's `parsed` attribute holds a validated instance.
-
-```python
-class Answer(BaseModel):
-    number: int
-    explanation: str
-
-resp = await model.chat(
-    [ChatMessageBase.user("What is 21 + 21?")],
-    structured_model=Answer,
-)
-print(resp.parsed)    # Answer(number=42, explanation='…')
-```
-
-Provider paths (try native first, fall back gracefully):
-
-* **OpenAI Chat Completions** — `beta.chat.completions.parse` → forced
-  tool call → prompt.
-* **OpenAI Responses** — `text.format=json_schema` → forced tool call.
-* **Anthropic** — forced `tool_use`.
-* **Others** — prompt-based JSON + `json_repair` + `TypeAdapter`.
-  Subclass and override `_structured` to plug in provider-native APIs.
-
-At the agent level, pass `output_type=MyModel` to `run()`; the agent
-runs its loop, then coerces the final answer into `MyModel` and places
-it on `result.parsed`.
-
-## Regex-based extraction
-
-For patterns like ReAct's `Thought / Action / Observation` or ReWOO's
-`#E1 = tool[args]`, a regex is cheaper than a JSON round-trip and works
-on any model:
-
-```python
-from agentkits import PatternSchema
-
-step = PatternSchema.build(
-    r"""
-    Thought\s*(?P<index>\d+)?\s*:\s*(?P<thought>.*?)
-    (?=\n\s*Action\s*\d*\s*:)
-    \n\s*Action\s*\d*\s*:\s*(?P<tool>[A-Za-z_][\w-]*)\s*\[(?P<arg>.*?)\]
-    """,
-    verbose=True, dotall=True,
-)
-
-for hit in step.match_all(assistant_reply):
-    print(hit)  # {'index': '1', 'thought': '…', 'tool': 'add', 'arg': '…'}
-```
-
-`ClassicReActAgent` and `ReWOOAgent` use it internally.
-
-## Examples
-
-```bash
-export DS_API_KEY=sk-...
-
-python examples/01_quickstart.py              # streaming ReAct + tools
-python examples/02_structured_output.py       # structured_model + output_type
-python examples/03_pattern_schema.py          # PatternSchema + ClassicReAct
-python examples/04_multi_agent.py             # every built-in agent side-by-side
-python examples/05_multi_agent_composition.py # agent_as_tool + handoff
-```
-
+| `ReActAgent` | Tool-calling loop. |
+| `ClassicReActAgent` | Text-based Thought / Action / Observation loop. |
+| `PlanAgent` | Plan first, then execute. |
+| `ReWOOAgent` | Plan a tool DAG, execute observations, then solve. |
+| `ReflexionAgent` | Act, evaluate, reflect, and retry. |
+| `SelfRefineAgent` | Draft, review, and revise. |
 
 ## License
 
-[Apache-2.0](./LICENSE).
+[Apache-2.0](./LICENSE)

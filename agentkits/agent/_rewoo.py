@@ -1,16 +1,3 @@
-# -*- coding: utf-8 -*-
-"""ReWOO agent.
-
-Xu et al., "ReWOO: Decoupling Reasoning from Observations for Efficient
-Augmented Language Models" (2023).
-
-Planner -> Worker -> Solver. The planner emits the full DAG of tool
-calls up front using ``#E<k>`` placeholders, the worker executes each
-call (substituting prior ``#E<j>`` observations into arguments), and
-the solver composes the final answer. This avoids a model round-trip
-per tool call, which is the main ReAct overhead.
-"""
-
 from __future__ import annotations
 
 import json
@@ -93,8 +80,6 @@ _PLACEHOLDER_RE = re.compile(r"#E\d+")
 
 
 class ReWOOAgent(AgentBase):
-    """Plan the full tool DAG once, execute, then solve."""
-
     def __init__(
         self,
         *,
@@ -110,10 +95,11 @@ class ReWOOAgent(AgentBase):
             raise ValueError(
                 "ReWOOAgent requires at least one of model / planner_model / solver_model.",
             )
+        shared_model = model or planner_model or solver_model
         self.name = name
         self.description = description or f"A ReWOO agent named {name}."
-        self.planner_model = planner_model or model  # type: ignore[assignment]
-        self.solver_model = solver_model or model  # type: ignore[assignment]
+        self.planner_model = planner_model or shared_model
+        self.solver_model = solver_model or shared_model
         self.toolkit = toolkit or Toolkit()
         self.max_steps = max_steps
 
@@ -149,7 +135,7 @@ class ReWOOAgent(AgentBase):
             if extra is not None:
                 usage = extra if usage is None else usage + extra
 
-        return ReWOOResult(
+        result = ReWOOResult(
             messages=messages,
             final_message=final_message,
             iterations=2,
@@ -159,8 +145,12 @@ class ReWOOAgent(AgentBase):
             plan=plan,
             observations=observations,
         )
+        return result
 
-    async def _plan(self, task: str) -> tuple[list[_PlanStep], ChatUsage | None]:
+    async def _plan(
+        self,
+        task: str,
+    ) -> tuple[list[_PlanStep], ChatUsage | None]:
         tools_list = "\n".join(
             f"- {s['function']['name']}: {s['function'].get('description') or ''}".rstrip()
             for s in self.toolkit.get_json_schemas()
@@ -183,10 +173,7 @@ class ReWOOAgent(AgentBase):
         steps = _parse_plan(response.message.text, self.max_steps)
         return steps, response.usage
 
-    async def _work(
-        self,
-        plan: list[_PlanStep],
-    ) -> tuple[dict[str, str], int]:
+    async def _work(self, plan: list[_PlanStep]) -> tuple[dict[str, str], int]:
         observations: dict[str, str] = {}
         executed = 0
         for step in plan:
@@ -255,11 +242,6 @@ def _parse_plan(text: str, max_steps: int) -> list[_PlanStep]:
 
 
 def _substitute(text: str, observations: dict[str, str]) -> str:
-    """Replace ``#E<k>`` placeholders with prior observations.
-
-    Done as raw string substitution so references can appear inside
-    arbitrary JSON-shaped argument values.
-    """
     if not text:
         return text
 

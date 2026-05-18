@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -28,9 +27,6 @@ def handoff(
     description: str | None = None,
     input_filter: HandoffInputFilter | None = None,
 ) -> Callable[..., "Awaitable[ToolResponse]"]:
-    """Build a tool function that transfers the run to ``agent`` when
-    called. :class:`ReActAgent` detects the ``_handoff`` marker.
-    """
     tool_name = name or f"transfer_to_{agent.name}"
     tool_description = description or (
         f"Hand the conversation off to the '{agent.name}' agent. "
@@ -38,11 +34,6 @@ def handoff(
     ).strip()
 
     async def _transfer(reason: str = "") -> ToolResponse:
-        """Hand control to the target agent.
-
-        Args:
-            reason: Optional free-form reason shown to downstream code.
-        """
         ack = (
             f"Handing off to {agent.name}."
             if not reason
@@ -50,11 +41,11 @@ def handoff(
         )
         return ToolResponse.from_value(ack)
 
-    _transfer.__name__ = tool_name  # type: ignore[attr-defined]
+    _transfer.__name__ = tool_name
     _transfer.__doc__ = tool_description + (
         "\n\nArgs:\n    reason: Short explanation of why the handoff is needed."
     )
-    _transfer._handoff = _HandoffMarker(  # type: ignore[attr-defined]
+    _transfer._handoff = _HandoffMarker(
         target=agent, input_filter=input_filter,
     )
     return _transfer

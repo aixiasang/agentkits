@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import json
@@ -25,28 +24,6 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ChatModelBase(ABC):
-    """Abstract chat model.
-
-    Subclasses implement :meth:`chat` for the provider-specific
-    streaming / non-streaming path.
-
-    Structured output is threaded through the same top-level entry
-    points (:meth:`chat` / :meth:`chat_cb`) via the optional
-    ``structured_model`` keyword. When supplied, the call is routed to
-    :meth:`_structured`, and the returned :class:`ChatResponse` has a
-    validated pydantic instance on its ``parsed`` attribute.
-
-    The default :meth:`_structured` is prompt-based JSON + repair,
-    which works on any chat model (including providers without a native
-    structured-output API). Provider subclasses override
-    :meth:`_structured` to use native features:
-
-    * :class:`~agentkits.OpenAIChatModel` - ``beta.chat.completions.parse``
-      first, then forced function-call fallback.
-    * :class:`~agentkits.OpenAIResponsesModel` - ``text.format=json_schema``.
-    * :class:`~agentkits.ClaudeChatModel` - forced ``tool_use`` call.
-    """
-
     model_name: str
     stream: bool
     retry_policy: RetryPolicy
@@ -85,13 +62,7 @@ class ChatModelBase(ABC):
         tool_choice: ToolChoice | None = None,
         **kwargs: Any,
     ) -> ChatResponse | AsyncGenerator[ChatStreamChunk, None]:
-        """Provider-specific chat call. ``**kwargs`` may include
-        ``structured_model`` (pydantic BaseModel subclass); when present,
-        implementations SHOULD dispatch to :meth:`_structured`.
-
-        Reference implementations in this package do so. Custom models
-        embedding a different provider only need to forward the kwarg.
-        """
+        raise NotImplementedError
 
     async def chat_cb(
         self,
@@ -137,15 +108,6 @@ class ChatModelBase(ABC):
         structured_model: Type[T],
         **kwargs: Any,
     ) -> ChatResponse:
-        """Default structured-output path: prompt-based JSON + repair.
-
-        Used for models without a native structured-output API (many
-        domestic Chinese providers, older gateways). Override in
-        subclasses to use provider-native features when available.
-
-        Implementations MUST return a :class:`ChatResponse` with
-        ``parsed`` populated with a ``structured_model`` instance.
-        """
         schema = structured_model.model_json_schema()
         schema.pop("title", None)
         instruction = ChatMessageBase.system(
@@ -158,7 +120,6 @@ class ChatModelBase(ABC):
         prev_stream = self.stream
         self.stream = False
         try:
-            # Bypass ``structured_model`` here to avoid recursion.
             response = await self.chat(augmented, **kwargs)
         finally:
             self.stream = prev_stream
@@ -199,12 +160,6 @@ def _finalize_structured(
     response: ChatResponse,
     structured_model: Type[T],
 ) -> ChatResponse:
-    """Validate the raw model output into a ``structured_model`` instance.
-
-    Subclasses that populate ``response.parsed`` themselves should still
-    call this so the payload is validated (turns a dict into a pydantic
-    instance; leaves a validated instance alone).
-    """
     if response.parsed is not None and isinstance(response.parsed, structured_model):
         return response
 

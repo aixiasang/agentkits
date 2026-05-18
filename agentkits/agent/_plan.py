@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, List
 
 from ..message import ChatMessageBase
 from ..model import ChatModelBase
@@ -27,6 +26,9 @@ Respond with ONLY a numbered list, one step per line, like:
 1. <step>
 2. <step>
 
+Keep each step tied to one tool category or one final reasoning step.
+Repeated calls to the same tool for similar items may share one step. Do
+not combine unrelated tool categories in the same numbered step.
 Do not add any prose before or after the list."""
 
 
@@ -48,8 +50,6 @@ class PlanResult(AgentResult):
 
 
 class PlanAgent(AgentBase):
-    """Two-stage plan-then-execute agent."""
-
     def __init__(
         self,
         *,
@@ -68,10 +68,11 @@ class PlanAgent(AgentBase):
             raise ValueError(
                 "PlanAgent requires at least one of model / planner_model / executor_model.",
             )
+        shared_model = model or planner_model or executor_model
         self.name = name
         self.description = description or f"A plan-and-execute agent named {name}."
-        self.planner_model = planner_model or model  # type: ignore[assignment]
-        self.executor_model = executor_model or model  # type: ignore[assignment]
+        self.planner_model = planner_model or shared_model
+        self.executor_model = executor_model or shared_model
         self.toolkit = toolkit or Toolkit()
         self.system_prompt = system_prompt
         self.max_steps = max_steps
@@ -87,6 +88,7 @@ class PlanAgent(AgentBase):
         on_message: OnMessageCb | None = None,
         max_iterations: int | None = None,
         output_type: type | None = None,
+        **_: Any,
     ) -> PlanResult:
         user_text = _extract_user_text(user_input)
 
@@ -106,7 +108,7 @@ class PlanAgent(AgentBase):
             output_type=output_type,
         )
 
-        return PlanResult(
+        result = PlanResult(
             messages=react_result.messages,
             final_message=react_result.final_message,
             iterations=react_result.iterations + 1,
@@ -115,8 +117,12 @@ class PlanAgent(AgentBase):
             parsed=react_result.parsed,
             plan=plan,
         )
+        return result
 
-    async def _plan(self, user_text: str) -> list[str]:
+    async def _plan(
+        self,
+        user_text: str,
+    ) -> list[str]:
         tools_list = "\n".join(
             f"- {s['function']['name']}: {s['function'].get('description') or ''}".rstrip()
             for s in self.toolkit.get_json_schemas()

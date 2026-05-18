@@ -1,37 +1,19 @@
-# -*- coding: utf-8 -*-
-"""Hierarchical composition: sub-agents as tools, and runtime handoff.
-
-Two patterns side by side:
-
-1. ``agent_as_tool(child)`` exposes any agent as a regular tool. The
-   parent's ReAct loop calls it like any other function; the child's
-   loop runs to completion and returns its final answer to the parent.
-
-2. ``handoff(target)`` hands the conversation off mid-run. When the
-   main agent calls the handoff tool, ``ReActAgent`` detects the
-   marker, stops its own loop, and the *target* agent takes over with
-   the full (optionally filtered) history. The final ``AgentResult``
-   carries ``metadata={"handoff_to": <target name>}``.
-
-Run::
-
-    export DS_API_KEY=sk-...
-    python examples/05_multi_agent_composition.py
-"""
-
 from __future__ import annotations
 
 import asyncio
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentkits import (
-    OpenAIChatModel,
     ReActAgent,
     Toolkit,
     ToolResponse,
     agent_as_tool,
     handoff,
 )
+from _shared import RunPrinter, ali_model, print_result
 
 
 def math_toolkit() -> Toolkit:
@@ -61,6 +43,13 @@ def math_toolkit() -> Toolkit:
 
 
 async def demo_agent_as_tool(model) -> None:
+    user_input = (
+        "Ask the math_agent to solve this subtask: add 21 and 21, then "
+        "multiply the result by 2. Return the final number with context."
+    )
+    printer = RunPrinter("05a composition: agent_as_tool")
+    printer.start(user_input)
+
     math_agent = ReActAgent(
         name="math_agent",
         description="Solves arithmetic questions using add / multiply.",
@@ -86,16 +75,20 @@ async def demo_agent_as_tool(model) -> None:
     )
 
     result = await parent.run(
-        "I need 21 + 21, then double that. What's the final number?",
+        user_input,
+        on_message=printer.on_message,
     )
-    print(
-        f"[agent_as_tool] answer={result.text()!r}  "
-        f"tool_calls={result.tool_calls}  "
-        f"usage={result.usage.to_dict() if result.usage else None}",
-    )
+    print_result(result)
 
 
 async def demo_handoff(model) -> None:
+    user_input = (
+        "This is an arithmetic request. Route it to the specialist and "
+        "compute: (19 + 23) * 3."
+    )
+    printer = RunPrinter("05b composition: runtime handoff")
+    printer.start(user_input)
+
     math_agent = ReActAgent(
         name="math_agent",
         description="Handles arithmetic by calling add / multiply.",
@@ -120,32 +113,15 @@ async def demo_handoff(model) -> None:
         max_iterations=3,
     )
 
-    result = await router.run("What is 21 + 21?")
-    print(
-        f"[handoff] answer={result.text()!r}  "
-        f"handoff_to={(result.metadata or {}).get('handoff_to')!r}  "
-        f"tool_calls={result.tool_calls}  "
-        f"usage={result.usage.to_dict() if result.usage else None}",
+    result = await router.run(
+        user_input,
+        on_message=printer.on_message,
     )
+    print_result(result)
 
 
 async def main() -> None:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv()
-    except ImportError:
-        pass
-
-    api_key = os.environ.get("DS_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        raise SystemExit("Set DS_API_KEY first.")
-
-    async with OpenAIChatModel(
-        model_name="deepseek-v4-pro",
-        api_key=api_key,
-        base_url="https://api.deepseek.com",
-    ) as model:
+    async with ali_model() as model:
         await demo_agent_as_tool(model)
         await demo_handoff(model)
 

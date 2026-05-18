@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import time
@@ -20,13 +19,6 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class OpenAIResponsesModel(ChatModelBase):
-    """OpenAI Responses API wrapper.
-
-    Accepts ``input`` as typed items and emits the same shape as
-    ``output``. Supports ``previous_response_id`` for stateful
-    continuations.
-    """
-
     def __init__(
         self,
         model_name: str,
@@ -122,11 +114,6 @@ class OpenAIResponsesModel(ChatModelBase):
         structured_model: Type[T],
         **kwargs: Any,
     ) -> ChatResponse:
-        """Use the Responses API ``text.format=json_schema`` channel.
-
-        Falls back to a forced function-call (same fake-tool pattern as
-        the Chat Completions path) on 400 responses.
-        """
         if self._structured_tool_fallback:
             return await self._structured_via_tool(msg, structured_model, **kwargs)
 
@@ -434,8 +421,6 @@ def _messages_to_responses_input(
 
 
 def _binary_to_responses_part(b: "BinaryContent", *, role: str) -> dict:
-    from ..message._content import BinaryContent  # noqa: F401
-
     if b.kind == "image":
         if b.url is not None:
             return {"type": "input_image", "image_url": b.url}

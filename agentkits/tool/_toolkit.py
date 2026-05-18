@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import inspect
@@ -18,13 +17,6 @@ from ._types import AgentSkill, RegisteredToolFunction, ToolGroup
 
 
 class Toolkit:
-    """Register, describe, and invoke tool functions.
-
-    Accepts plain callables (sync / async / generator), MCP tools via
-    :meth:`register_mcp_client`, and skill descriptors. Schemas are
-    stored in OpenAI function-schema form.
-    """
-
     def __init__(self) -> None:
         self.tools: dict[str, RegisteredToolFunction] = {}
         self.groups: dict[str, ToolGroup] = {
@@ -238,12 +230,6 @@ class Toolkit:
         raise_on_missing: bool = False,
         raise_on_error: bool = False,
     ) -> AsyncGenerator[ToolResponse, None]:
-        """Invoke a registered tool and yield :class:`ToolResponse` chunks.
-
-        By default, missing-tool and execution failures are surfaced as
-        error :class:`ToolResponse` objects so the model can recover.
-        Set ``raise_on_*`` to opt into exceptions.
-        """
         name = tool_call.name
         entry = self.tools.get(name)
         if entry is None:

@@ -1,28 +1,3 @@
-# -*- coding: utf-8 -*-
-"""Classic ReAct agent.
-
-Yao et al., "ReAct: Synergizing Reasoning and Acting in Language Models"
-(ICLR 2023).
-
-Original formulation: the model interleaves three kinds of text --
-``Thought N``, ``Action N[<arg>]``, and ``Observation N`` -- until it
-calls ``finish[<final answer>]``. Tools are described in plain text in
-the system prompt; there is no function-calling schema, no ``tools``
-parameter, no tool role. The agent:
-
-1. Sends ``system`` + scratchpad as messages.
-2. Generates one step (a Thought and an Action).
-3. Soft-stops the model output at ``\\nObservation`` so the rest of the
-   trajectory is produced by *this* code, not the model.
-4. Executes the named tool and appends ``Observation N: <obs>`` to the
-   scratchpad.
-5. Repeats until the model calls ``finish[...]`` or the budget is
-   exhausted.
-
-This is deliberately separate from :class:`ReActAgent`, which uses the
-modern provider-side tool-calling interface.
-"""
-
 from __future__ import annotations
 
 import json
@@ -99,13 +74,6 @@ _FINISH_NAMES = {"finish", "final_answer", "answer"}
 
 
 class ClassicReActAgent(AgentBase):
-    """Classic (paper-faithful) ReAct loop over a chat model.
-
-    Tools are exposed to the model through the system prompt, not
-    provider tool-calling. Callers supply a :class:`Toolkit` as usual;
-    argument dispatch is described in :meth:`_invoke_tool`.
-    """
-
     def __init__(
         self,
         *,
@@ -224,7 +192,7 @@ class ClassicReActAgent(AgentBase):
                                 extra if usage_total is None else usage_total + extra
                             )
 
-                    return ClassicReActResult(
+                    result = ClassicReActResult(
                         messages=history,
                         final_message=final_msg,
                         iterations=idx,
@@ -235,6 +203,7 @@ class ClassicReActAgent(AgentBase):
                         final_answer=action_arg,
                         steps=steps,
                     )
+                    return result
 
                 observation = await self._invoke_tool(action_name, action_arg)
                 tool_calls_made += 1
@@ -292,16 +261,11 @@ class ClassicReActAgent(AgentBase):
             prompt = f"{prompt}\n\n{self.extra_instructions}"
         return prompt
 
-    async def _invoke_tool(self, name: str, arg: str) -> str:
-        """Run ``name[arg]`` through the toolkit and return a flat string.
-
-        Argument dispatch:
-
-        * If ``arg`` parses as a JSON object, pass its keys as kwargs.
-        * Else, if the tool has at least one parameter, the raw string
-          is bound to the first (required, else first declared) parameter.
-        * Else the tool is invoked with no kwargs.
-        """
+    async def _invoke_tool(
+        self,
+        name: str,
+        arg: str,
+    ) -> str:
         entry = self.toolkit.tools.get(name)
         if entry is None:
             return f"(error) unknown tool {name!r}"

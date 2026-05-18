@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._base import ChatModelBase
 from ._claude_model import ClaudeChatModel
 from ._openai_model import OpenAIChatModel

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from typing import Any, Awaitable, Callable, Literal, Union
 
 JSONValue = Union[None, bool, int, float, str, list["JSONValue"], dict[str, "JSONValue"]]

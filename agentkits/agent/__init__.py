@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._as_tool import agent_as_tool
 from ._base import AgentBase, AgentResult
 from ._classic_react import ClassicReActAgent, ClassicReActResult, ReActStep

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._logging import logger
 from ._version import __version__
 from .agent import (

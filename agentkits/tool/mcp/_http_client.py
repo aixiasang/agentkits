@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from datetime import timedelta
@@ -8,8 +7,6 @@ from ._base import MCPClientBase, MCPToolFunction
 
 
 class HttpStatelessClient(MCPClientBase):
-    """MCP over streamable HTTP with a fresh connection per call."""
-
     def __init__(
         self,
         name: str,

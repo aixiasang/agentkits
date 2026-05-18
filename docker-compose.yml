@@ -1,0 +1,10 @@
+services:
+  agentkits-demo:
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-docker.m.daocloud.io/library/python:3.12-slim}
+    environment:
+      ALI_API_KEY: ${ALI_API_KEY:-}
+      ali_api_key: ${ali_api_key:-}
+    command: python examples/08_reproducible_demo.py

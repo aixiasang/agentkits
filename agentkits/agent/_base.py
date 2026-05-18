@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -21,10 +20,7 @@ class AgentResult:
     iterations: int = 0
     tool_calls: int = 0
     usage: ChatUsage | None = None
-    """Aggregated token usage across all model invocations in this run."""
     parsed: Any = None
-    """Populated when ``output_type`` was requested on the run: a
-    validated pydantic instance of that type."""
     metadata: dict[str, Any] | None = None
 
     def text(self) -> str:
@@ -47,8 +43,6 @@ def _accumulate_usage(
     total: ChatUsage | None,
     msg: ChatMessageBase,
 ) -> ChatUsage | None:
-    """Pick up the per-call usage that ``chat_cb`` stashes on every
-    assistant message's ``metadata["usage"]`` and add it to ``total``."""
     usage_dict = (msg.metadata or {}).get("usage") if msg.metadata else None
     if not isinstance(usage_dict, dict):
         return total
@@ -65,14 +59,6 @@ async def finalize_structured_output(
     history: list[ChatMessageBase],
     output_type: Type[T],
 ) -> tuple[T, ChatUsage | None]:
-    """Run one extra model call that coerces the run's final answer
-    into ``output_type`` using the provider's structured-output path.
-
-    Agents invoke this after their main loop converges when a caller
-    passes ``output_type`` to ``run()``. The call is a full round-trip
-    so its token usage is returned for the caller to fold into
-    ``AgentResult.usage``.
-    """
     tail = list(history) + [
         ChatMessageBase.user(
             f"Now produce the final answer strictly as a structured "

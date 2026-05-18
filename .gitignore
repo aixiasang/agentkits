@@ -51,9 +51,12 @@ ccode/
 # ---------- Runtime artefacts ----------
 .ccode/
 .claude/
+.agentkits/
 *.sqlite
 *.db
 *.db-journal
+
+examples/README.md
 
 # ---------- Jupyter ----------
 .ipynb_checkpoints/

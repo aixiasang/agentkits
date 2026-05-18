@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from dataclasses import dataclass, field
 from typing import Any, List
 
@@ -27,7 +26,7 @@ class ToolResponse:
         if not isinstance(self.content, list) or any(
             not isinstance(i, (str, BinaryContent)) for i in self.content
         ):
-            self.content = coerce_content(self.content)  # type: ignore[arg-type]
+            self.content = coerce_content(self.content)
 
     @property
     def text(self) -> str:

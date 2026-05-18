@@ -1,25 +1,17 @@
-# -*- coding: utf-8 -*-
-"""ReAct quickstart.
-
-Run::
-
-    export DS_API_KEY=sk-...
-    python examples/01_quickstart.py
-"""
-
 from __future__ import annotations
 
 import asyncio
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentkits import (
-    ChatMessageBase,
-    ChatStreamChunk,
-    OpenAIChatModel,
     ReActAgent,
     Toolkit,
     ToolResponse,
 )
+from _shared import RunPrinter, ali_model, print_result
 
 
 def build_toolkit() -> Toolkit:
@@ -27,21 +19,21 @@ def build_toolkit() -> Toolkit:
 
     @tk.tool()
     def add(a: int, b: int) -> ToolResponse:
-        """Add two integers.
+        """Add two numbers.
 
         Args:
-            a: The first integer.
-            b: The second integer.
+            a: The first number.
+            b: The second number.
         """
         return ToolResponse.from_value(str(a + b))
 
     @tk.tool()
     def multiply(a: int, b: int) -> ToolResponse:
-        """Multiply two integers.
+        """Multiply two numbers.
 
         Args:
-            a: The first integer.
-            b: The second integer.
+            a: The first number.
+            b: The second number.
         """
         return ToolResponse.from_value(str(a * b))
 
@@ -49,57 +41,30 @@ def build_toolkit() -> Toolkit:
 
 
 async def main() -> None:
-    try:
-        from dotenv import load_dotenv
+    user_input = (
+        "Use tools to compute the launch-room capacity score: "
+        "(12 reserved seats + 30 open seats) * 2."
+    )
+    printer = RunPrinter("01 quickstart: ReAct tool loop")
+    printer.start(user_input)
 
-        load_dotenv()
-    except ImportError:
-        pass
-
-    api_key = os.environ.get("DS_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        raise SystemExit("Set DS_API_KEY in your environment first.")
-
-    async with OpenAIChatModel(
-        model_name="deepseek-v4-pro",
-        api_key=api_key,
-        base_url="https://api.deepseek.com",
-        stream=True,
-    ) as model:
+    async with ali_model() as model:
         agent = ReActAgent(
             model=model,
             toolkit=build_toolkit(),
             system_prompt=(
-                "You are a concise arithmetic assistant. Use the provided "
-                "tools; reply with just the final number."
+                "You are a concise arithmetic assistant. Use tools for every "
+                "calculation. Reply with the final number and one short label."
             ),
             max_iterations=6,
         )
 
-        def on_chunk(chunk: ChatStreamChunk) -> None:
-            if chunk.delta_text:
-                print(chunk.delta_text, end="", flush=True)
-
-        def on_message(msg: ChatMessageBase) -> None:
-            if msg.role == "assistant" and msg.tool_calls:
-                print()
-            elif msg.role == "tool":
-                for res in msg.tool_results:
-                    print(f"[tool:{res.name} -> {res.text}]")
-
         result = await agent.run(
-            "Compute (12 + 30) * 2. Only output the result.",
-            on_chunk=on_chunk,
-            on_message=on_message,
+            user_input,
+            on_message=printer.on_message,
         )
 
-    print()
-    print(
-        f"[done] iterations={result.iterations} "
-        f"tool_calls={result.tool_calls} "
-        f"usage={result.usage.to_dict() if result.usage else None}",
-    )
-    print(f"answer: {result.text()}")
+    print_result(result)
 
 
 if __name__ == "__main__":

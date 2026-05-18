@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from typing import Awaitable, Callable
@@ -13,11 +12,6 @@ def agent_as_tool(
     name: str | None = None,
     description: str | None = None,
 ) -> Callable[[str], "Awaitable[ToolResponse]"]:
-    """Expose ``agent`` as a tool callable taking a ``request: str``.
-
-    Use with ``toolkit.register_tool_function`` to build hierarchical /
-    multi-agent setups.
-    """
     tool_name = name or agent.name
     tool_description = description or agent.description
 
@@ -28,7 +22,7 @@ def agent_as_tool(
             return ToolResponse()
         return ToolResponse(content=list(final.content))
 
-    _invoke.__name__ = tool_name  # type: ignore[attr-defined]
+    _invoke.__name__ = tool_name
     _invoke.__doc__ = (
         f"{tool_description}\n\n"
         f"Args:\n"

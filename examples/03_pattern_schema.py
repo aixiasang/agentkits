@@ -1,38 +1,20 @@
-# -*- coding: utf-8 -*-
-"""Regex-based structured extraction with ``PatternSchema``.
-
-Sometimes the cheapest, most robust "structured output" is to let the
-model speak naturally and then pull the fields you want out with a
-single regex. This is exactly what ClassicReAct / ReWOO do internally.
-
-Two demos:
-
-* a hand-rolled schema applied to a freeform assistant reply,
-* a ClassicReAct run (which uses the same helper under the hood) that
-  exposes its ``Thought / Action / Observation`` trajectory as typed
-  ``ReActStep`` records.
-
-Run::
-
-    export DS_API_KEY=sk-...
-    python examples/03_pattern_schema.py
-"""
-
 from __future__ import annotations
 
 import asyncio
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agentkits import (
     ClassicReActAgent,
-    OpenAIChatModel,
     PatternSchema,
     Toolkit,
     ToolResponse,
 )
+from _shared import ali_model, print_result
 
 
-# A minimal extraction schema: "- name: John Doe, age: 33" style lines.
 PERSON_SCHEMA = PatternSchema.build(
     r"""
     (?:^|\n)\s*-\s*name\s*:\s*(?P<name>[^,\n]+),\s*
@@ -60,18 +42,6 @@ def build_toolkit() -> Toolkit:
 
 
 async def main() -> None:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv()
-    except ImportError:
-        pass
-
-    api_key = os.environ.get("DS_API_KEY") or os.environ.get("DEEPSEEK_API_KEY")
-    if not api_key:
-        raise SystemExit("Set DS_API_KEY first.")
-
-    # --- Demo 1: regex extraction on freeform text --------------------
     sample = (
         "Here are the attendees:\n"
         "- name: Alice, age: 30\n"
@@ -82,12 +52,7 @@ async def main() -> None:
     for row in PERSON_SCHEMA.match_all(sample):
         print(" ", row)
 
-    # --- Demo 2: ClassicReAct trajectory parsed via PatternSchema ------
-    async with OpenAIChatModel(
-        model_name="deepseek-v4-pro",
-        api_key=api_key,
-        base_url="https://api.deepseek.com",
-    ) as model:
+    async with ali_model() as model:
         agent = ClassicReActAgent(
             model=model,
             toolkit=build_toolkit(),
@@ -103,6 +68,7 @@ async def main() -> None:
             f"  step {step.index}: {step.action_name}[{step.action_arg!s:.40}] "
             f"-> {step.observation!s:.40}",
         )
+    print_result(result, final_text=result.final_answer)
 
 
 if __name__ == "__main__":

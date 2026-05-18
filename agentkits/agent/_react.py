@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -22,13 +21,6 @@ class ReActResult(AgentResult):
 
 
 class ReActAgent(AgentBase):
-    """Drive ``model`` + ``toolkit`` until the model stops emitting tool
-    calls or ``max_iterations`` is exhausted.
-
-    Streaming mode resolves in priority order: ``run(stream=...)`` >
-    ``ReActAgent(stream=...)`` > ``model.stream``.
-    """
-
     def __init__(
         self,
         *,
@@ -216,7 +208,10 @@ class ReActAgent(AgentBase):
         new_tail = [m for m in history[cursor:] if m.role != "system"]
         await session.append(session_id, new_tail)
 
-    async def _run_tools(self, tool_calls: list[ToolCall]) -> ChatMessageBase:
+    async def _run_tools(
+        self,
+        tool_calls: list[ToolCall],
+    ) -> ChatMessageBase:
         results: list[ToolResult] = []
         for call in tool_calls:
             collected: list[ToolResponse] = []
@@ -255,7 +250,7 @@ class ReActAgent(AgentBase):
             if marker.input_filter is not None:
                 out = marker.input_filter(history)
                 if hasattr(out, "__await__"):
-                    out = await out  # type: ignore[misc]
+                    out = await out
                 filtered = list(out)
             return marker.target, filtered
 
@@ -285,13 +280,9 @@ class ReActAgent(AgentBase):
             sub_kwargs["session"] = session
             sub_kwargs["session_id"] = session_id
 
-        nested = await target.run(history, **sub_kwargs)  # type: ignore[arg-type]
+        nested = await target.run(history, **sub_kwargs)
 
         total_usage = nested.usage
-        # ``handoff`` pass through: if we already spent tokens before the
-        # transfer, add them to the nested run's total.
-        # (The outer caller's own ``usage_total`` is forwarded here via
-        # ``iterations_so_far`` / ``tool_calls_so_far`` semantics.)
         return ReActResult(
             messages=nested.messages,
             final_message=nested.final_message,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._async import iter_to_async_stream, maybe_await
 from ._docstring import parse_docstring
 from ._id import make_id, make_msg_id, make_resp_id, make_tool_id

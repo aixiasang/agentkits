@@ -1,18 +1,7 @@
-# -*- coding: utf-8 -*-
-"""Reflexion agent.
-
-Shinn et al., "Reflexion: Language Agents with Verbal Reinforcement
-Learning" (NeurIPS 2023).
-
-Actor -> Evaluator -> Reflector loop. Failed trials produce a short
-self-reflection that is injected into the actor's system prompt for the
-next trial, up to ``max_trials``.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Awaitable, Callable, List
+from typing import Any, Awaitable, Callable, List
 
 from ..message import ChatMessageBase
 from ..model import ChatModelBase
@@ -58,8 +47,6 @@ class ReflexionResult(AgentResult):
 
 
 class ReflexionAgent(AgentBase):
-    """Loop: run actor -> evaluate -> reflect -> retry with reflection."""
-
     def __init__(
         self,
         *,
@@ -91,6 +78,7 @@ class ReflexionAgent(AgentBase):
         *,
         max_trials: int | None = None,
         output_type: type | None = None,
+        **_: Any,
     ) -> ReflexionResult:
         task = _extract_user_text(user_input)
         limit = max_trials or self.max_trials
@@ -131,7 +119,7 @@ class ReflexionAgent(AgentBase):
             if extra is not None:
                 total_usage = extra if total_usage is None else total_usage + extra
 
-        return ReflexionResult(
+        result = ReflexionResult(
             messages=last_result.messages,
             final_message=last_result.final_message,
             iterations=last_result.iterations,
@@ -142,6 +130,7 @@ class ReflexionAgent(AgentBase):
             trials=trial,
             success=success,
         )
+        return result
 
     def _actor_prompt(self, reflections: list[str]) -> str:
         base = self.system_prompt or ""
@@ -154,11 +143,15 @@ class ReflexionAgent(AgentBase):
         )
         return f"{base}\n\n{extra}".strip()
 
-    async def _evaluate(self, task: str, answer: str) -> bool:
+    async def _evaluate(
+        self,
+        task: str,
+        answer: str,
+    ) -> bool:
         if self.evaluator is not None:
             out = self.evaluator(task, answer)
             if hasattr(out, "__await__"):
-                return bool(await out)  # type: ignore[misc]
+                return bool(await out)
             return bool(out)
 
         prev = self.evaluator_model.stream
@@ -176,7 +169,11 @@ class ReflexionAgent(AgentBase):
             self.evaluator_model.stream = prev
         return final.text.strip().lower().startswith("y")
 
-    async def _reflect(self, task: str, answer: str) -> str:
+    async def _reflect(
+        self,
+        task: str,
+        answer: str,
+    ) -> str:
         prev = self.reflection_model.stream
         self.reflection_model.stream = False
         try:

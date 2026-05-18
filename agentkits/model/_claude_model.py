@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import time
@@ -22,9 +21,6 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class ClaudeChatModel(ChatModelBase):
-    """Anthropic Messages API wrapper; also supports Anthropic-compatible
-    gateways via ``base_url``."""
-
     def __init__(
         self,
         model_name: str,
@@ -99,10 +95,6 @@ class ClaudeChatModel(ChatModelBase):
         structured_model: Type[T],
         **kwargs: Any,
     ) -> ChatResponse:
-        """Claude has no JSON-schema mode; force a single tool call whose
-        input is the structured answer. The tool is never executed -
-        its arguments are the payload.
-        """
         schema = structured_model.model_json_schema()
         schema.pop("title", None)
 
@@ -149,7 +141,6 @@ class ClaudeChatModel(ChatModelBase):
         tool_choice: ToolChoice | None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        # Claude takes system out-of-band; extract and merge.
         system_text: str | None = None
         body_msgs: list[ChatMessageBase] = []
         for m in msg:

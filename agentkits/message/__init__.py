@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from ._chat_message import ChatMessageBase
 from ._content import (
     BinaryContent,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import json
@@ -19,7 +18,6 @@ from ._content import (
     content_binary,
     content_text,
 )
-from ._usage import ChatUsage  # noqa: F401
 
 
 @dataclass
@@ -39,7 +37,7 @@ class ChatMessageBase:
         if not isinstance(self.content, list) or any(
             not isinstance(i, (str, BinaryContent)) for i in self.content
         ):
-            self.content = coerce_content(self.content)  # type: ignore[arg-type]
+            self.content = coerce_content(self.content)
 
     @classmethod
     def system(cls, content: ContentLike, **kw: Any) -> "ChatMessageBase":
@@ -437,19 +435,18 @@ def _binary_to_claude_block(b: BinaryContent) -> dict | None:
 def _claude_source_to_binary(kind: str, src: dict) -> BinaryContent:
     if src.get("type") == "base64":
         return BinaryContent(
-            kind=kind,  # type: ignore[arg-type]
+            kind=kind,
             media_type=src.get("media_type", "image/png"),
             data=src.get("data", ""),
         )
     return BinaryContent(
-        kind=kind,  # type: ignore[arg-type]
+        kind=kind,
         media_type="image/png",
         url=src.get("url", ""),
     )
 
 
 def _tool_result_to_openai(tr: ToolResult) -> dict:
-    # OpenAI accepts only string content on role='tool'.
     return {
         "role": "tool",
         "tool_call_id": tr.id,

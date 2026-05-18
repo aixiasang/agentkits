@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import os
 import time
 import warnings
 from collections import OrderedDict
@@ -22,12 +22,6 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class OpenAIChatModel(ChatModelBase):
-    """OpenAI Chat Completions API wrapper.
-
-    Works against the real OpenAI endpoint and OpenAI-compatible
-    gateways (DeepSeek, Azure-style proxies, etc.) via ``base_url``.
-    """
-
     def __init__(
         self,
         model_name: str,
@@ -55,6 +49,20 @@ class OpenAIChatModel(ChatModelBase):
         self.stream_tool_parsing = stream_tool_parsing
         self.generate_kwargs = generate_kwargs or {}
         self._structured_tool_fallback = False
+
+    @classmethod
+    def from_ali_env(
+        cls,
+        *,
+        model_name: str = "qwen3-max",
+        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        api_key: str | None = None,
+        **kwargs: Any,
+    ) -> "OpenAIChatModel":
+        key = api_key or os.environ.get("ALI_API_KEY") or os.environ.get("ali_api_key")
+        if not key:
+            raise ValueError("Set ALI_API_KEY or ali_api_key first.")
+        return cls(model_name=model_name, api_key=key, base_url=base_url, **kwargs)
 
     async def chat(
         self,
@@ -102,23 +110,6 @@ class OpenAIChatModel(ChatModelBase):
         structured_model: Type[T],
         **kwargs: Any,
     ) -> ChatResponse:
-        """Use OpenAI's native structured output, with a typed-tool-call
-        fallback for gateways that reject ``response_format`` (DeepSeek,
-        DashScope, etc.).
-
-        Path priority:
-
-        1. ``client.beta.chat.completions.parse(response_format=Model)``
-           (json_schema strict mode; returns a validated pydantic
-           instance on ``choice.message.parsed``).
-        2. Fake ``generate_structured_output`` tool + forced
-           ``tool_choice``; the tool is never executed - its arguments
-           are the structured answer.
-
-        After the first successful fallback the instance remembers the
-        decision via ``self._structured_tool_fallback`` so subsequent
-        calls skip path (1) entirely.
-        """
         if getattr(self, "_structured_tool_fallback", False):
             return await self._structured_via_tool(msg, structured_model, **kwargs)
 
@@ -174,7 +165,6 @@ class OpenAIChatModel(ChatModelBase):
         except Exception:
             parsed = None
         if parsed is None:
-            # Strict mode should have parsed already; fall back to JSON text.
             raw_text = response.message.text
             parsed = safe_json_loads(raw_text, default=None)
         response.parsed = parsed
@@ -319,9 +309,6 @@ class OpenAIChatModel(ChatModelBase):
         stream: Any,
         start: float,
     ) -> AsyncGenerator[ChatStreamChunk, None]:
-        """Text/reasoning deltas mid-stream; tool_calls and usage only
-        on the terminal chunk so intermediate JSON is never exposed.
-        """
         content = ""
         reasoning = ""
         tool_slots: "OrderedDict[int, dict[str, Any]]" = OrderedDict()
